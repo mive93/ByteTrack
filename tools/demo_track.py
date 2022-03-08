@@ -284,6 +284,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                 online_im = img_info['raw_img']
             if args.save_result:
                 vid_writer.write(online_im)
+            cv2.imshow('res',online_im )
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break

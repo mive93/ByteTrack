@@ -7,9 +7,12 @@
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 #include "NvInfer.h"
+#include "NvInferPlugin.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
 #include "BYTETracker.h"
+
+#include "tkDNN/Yolo3Detection.h"
 
 #define CHECK(status) \
     do\
@@ -388,7 +391,125 @@ void doInference(IExecutionContext& context, float* input, float* output, const 
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
+
+int tkDNNMain(int argc, char** argv) {
+    std::string net = "yolo4_fp32.rt";
+    std::string input = "../../../../videos/palace.mp4";
+    int n_classes = 80;
+    int n_batch = 1;
+    float conf_thresh = 0.3f;
+    
+    if(argc > 1)
+        net = argv[1]; 
+    if(argc > 2)
+        input = argv[2];    
+
+    tk::dnn::Yolo3Detection yolo;
+    yolo.init(net, n_classes, n_batch, conf_thresh);
+
+    VideoCapture cap(input);
+	if (!cap.isOpened())
+		return 0;
+
+	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
+	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
+    int fps = cap.get(CAP_PROP_FPS);
+    long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
+    cout << "Total frames: " << nFrame << endl;
+
+
+    cv::Mat frame;
+    std::vector<cv::Mat> batch_frame;
+    std::vector<cv::Mat> batch_dnn_input;
+
+    Mat img;
+    BYTETracker tracker(fps, 30);
+    int num_frames = 0;
+    int total_ms = 0;
+	while (true)
+    {
+        //clear data structures
+        batch_dnn_input.clear();
+        batch_frame.clear();
+        
+        // read new frame
+        cap >> frame; 
+        if(!frame.data) 
+            break;
+
+        
+        // update data structures
+        batch_frame.push_back(frame);
+        batch_dnn_input.push_back(frame.clone());
+    
+        //do inference
+        
+        yolo.update(batch_dnn_input, n_batch);
+
+        // get bb
+        vector<Object> objects;
+
+        for(size_t i =0; i<yolo.detected.size(); ++i){
+
+            if(yolo.detected[i].cl == 0){
+            
+                Object obj;
+                obj.rect.x      = yolo.detected[i].x;
+                obj.rect.y      = yolo.detected[i].y;
+                obj.rect.width  = yolo.detected[i].w;
+                obj.rect.height = yolo.detected[i].h;
+                obj.label       = yolo.detected[i].cl;
+                obj.prob        = yolo.detected[i].prob;
+
+                objects.push_back(obj);
+            }
+            
+        }
+
+        auto start = chrono::system_clock::now();
+        // update tracker 
+        vector<STrack> output_stracks = tracker.update(objects);
+
+        //get time        
+        auto end = chrono::system_clock::now();
+        total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
+
+        num_frames ++;
+        if (num_frames % 20 == 0)
+            cout << "Processing frame " << num_frames << " (" << total_ms/1000.0f/num_frames << " ms avg)" << endl;
+
+
+        // draw
+        for (int i = 0; i < output_stracks.size(); i++)
+		{
+			vector<float> tlwh = output_stracks[i].tlwh;
+			bool vertical = tlwh[2] / tlwh[3] > 1.6;
+			if (tlwh[2] * tlwh[3] > 20 && !vertical)
+			{
+				Scalar s = tracker.get_color(output_stracks[i].track_id);
+				putText(frame, format("%d", output_stracks[i].track_id), Point(tlwh[0], tlwh[1] - 5), 
+                        0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
+                rectangle(frame, Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
+			}
+		}
+        putText(frame, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
+                Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
+
+        cv::imshow("detection", frame);
+        cv::waitKey(1);
+    }
+
+    cap.release();
+    cout << "FPS: " << num_frames * 1000000 / total_ms << endl;
+
+    return 0;
+    
+}
+
 int main(int argc, char** argv) {
+
+    return tkDNNMain(argc, argv);
+
     cudaSetDevice(DEVICE);
     
     // create a model using the API directly and serialize it to a stream
@@ -419,6 +540,7 @@ int main(int argc, char** argv) {
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
+    bool didInitPlugins = ::initLibNvInferPlugins(nullptr, "");
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr); 
     IExecutionContext* context = engine->createExecutionContext();
@@ -487,6 +609,7 @@ int main(int argc, char** argv) {
 		}
         putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
                 Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
+        imshow("img", img);
         writer.write(img);
 
         delete blob;
