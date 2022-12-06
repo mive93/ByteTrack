@@ -73,13 +73,13 @@ static void generate_grids_and_stride(const int target_w, const int target_h, st
     }
 }
 
-static inline float intersection_area(const Object& a, const Object& b)
+static inline float intersection_area(const bytetrack::Object& a, const bytetrack::Object& b)
 {
     cv::Rect_<float> inter = a.rect & b.rect;
     return inter.area();
 }
 
-static void qsort_descent_inplace(std::vector<Object>& faceobjects, int left, int right)
+static void qsort_descent_inplace(std::vector<bytetrack::Object>& faceobjects, int left, int right)
 {
     int i = left;
     int j = right;
@@ -116,7 +116,7 @@ static void qsort_descent_inplace(std::vector<Object>& faceobjects, int left, in
     }
 }
 
-static void qsort_descent_inplace(std::vector<Object>& objects)
+static void qsort_descent_inplace(std::vector<bytetrack::Object>& objects)
 {
     if (objects.empty())
         return;
@@ -124,7 +124,7 @@ static void qsort_descent_inplace(std::vector<Object>& objects)
     qsort_descent_inplace(objects, 0, objects.size() - 1);
 }
 
-static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vector<int>& picked, float nms_threshold)
+static void nms_sorted_bboxes(const std::vector<bytetrack::Object>& faceobjects, std::vector<int>& picked, float nms_threshold)
 {
     picked.clear();
 
@@ -138,12 +138,12 @@ static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vecto
 
     for (int i = 0; i < n; i++)
     {
-        const Object& a = faceobjects[i];
+        const bytetrack::Object& a = faceobjects[i];
 
         int keep = 1;
         for (int j = 0; j < (int)picked.size(); j++)
         {
-            const Object& b = faceobjects[picked[j]];
+            const bytetrack::Object& b = faceobjects[picked[j]];
 
             // intersection over union
             float inter_area = intersection_area(a, b);
@@ -159,7 +159,7 @@ static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vecto
 }
 
 
-static void generate_yolox_proposals(std::vector<GridAndStride> grid_strides, float* feat_blob, float prob_threshold, std::vector<Object>& objects)
+static void generate_yolox_proposals(std::vector<GridAndStride> grid_strides, float* feat_blob, float prob_threshold, std::vector<bytetrack::Object>& objects)
 {
     const int num_class = 1;
 
@@ -188,7 +188,7 @@ static void generate_yolox_proposals(std::vector<GridAndStride> grid_strides, fl
             float box_prob = box_objectness * box_cls_score;
             if (box_prob > prob_threshold)
             {
-                Object obj;
+                bytetrack::Object obj;
                 obj.rect.x = x0;
                 obj.rect.y = y0;
                 obj.rect.width = w;
@@ -228,8 +228,8 @@ float* blobFromImage(cv::Mat& img){
 }
 
 
-static void decode_outputs(float* prob, std::vector<Object>& objects, float scale, const int img_w, const int img_h) {
-        std::vector<Object> proposals;
+static void decode_outputs(float* prob, std::vector<bytetrack::Object>& objects, float scale, const int img_w, const int img_h) {
+        std::vector<bytetrack::Object> proposals;
         std::vector<int> strides = {8, 16, 32};
         std::vector<GridAndStride> grid_strides;
         generate_grids_and_stride(INPUT_W, INPUT_H, strides, grid_strides);
@@ -423,7 +423,7 @@ int tkDNNMain(int argc, char** argv) {
     std::vector<cv::Mat> batch_dnn_input;
 
     cv::Mat img;
-    BYTETracker tracker(fps, 30);
+    bytetrack::BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
 	while (true)
@@ -447,13 +447,13 @@ int tkDNNMain(int argc, char** argv) {
         yolo.update(batch_dnn_input, n_batch);
 
         // get bb
-        std::vector<Object> objects;
+        std::vector<bytetrack::Object> objects;
 
         for(size_t i =0; i<yolo.detected.size(); ++i){
 
             if(yolo.detected[i].cl == 0){
             
-                Object obj;
+                bytetrack::Object obj;
                 obj.rect.x      = yolo.detected[i].x;
                 obj.rect.y      = yolo.detected[i].y;
                 obj.rect.width  = yolo.detected[i].w;
@@ -468,7 +468,7 @@ int tkDNNMain(int argc, char** argv) {
 
         auto start = std::chrono::system_clock::now();
         // update tracker 
-        std::vector<STrack> output_stracks = tracker.update(objects);
+        std::vector<bytetrack::STrack> output_stracks = tracker.update(objects);
 
         //get time        
         auto end = std::chrono::system_clock::now();
@@ -566,7 +566,7 @@ int main(int argc, char** argv) {
     cv::VideoWriter writer("demo.mp4", cv::VideoWriter::fourcc('m', 'p', '4', 'v'), fps, cv::Size(img_w, img_h));
 
     cv::Mat img;
-    BYTETracker tracker(fps, 30);
+    bytetrack::BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
 	while (true)
@@ -589,9 +589,9 @@ int main(int argc, char** argv) {
         // run inference
         auto start = std::chrono::system_clock::now();
         doInference(*context, blob, prob, output_size, pr_img.size());
-        std::vector<Object> objects;
+        std::vector<bytetrack::Object> objects;
         decode_outputs(prob, objects, scale, img_w, img_h);
-        std::vector<STrack> output_stracks = tracker.update(objects);
+        std::vector<bytetrack::STrack> output_stracks = tracker.update(objects);
         auto end = std::chrono::system_clock::now();
         total_ms = total_ms + std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 

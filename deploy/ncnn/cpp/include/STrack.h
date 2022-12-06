@@ -15,7 +15,7 @@ public:
 	~STrack();
 
 	vector<float> static tlbr_to_tlwh(vector<float> &tlbr);
-	void static multi_predict(vector<STrack*> &stracks, byte_kalman::KalmanFilter &kalman_filter);
+	void static multi_predict(vector<STrack*> &stracks, kalman::KalmanFilter &kalman_filter);
 	void static_tlwh();
 	void static_tlbr();
 	vector<float> tlwh_to_xyah(vector<float> tlwh_tmp);
@@ -25,7 +25,7 @@ public:
 	int next_id();
 	int end_frame();
 	
-	void activate(byte_kalman::KalmanFilter &kalman_filter, int frame_id);
+	void activate(kalman::KalmanFilter &kalman_filter, int frame_id);
 	void re_activate(STrack &new_track, int frame_id, bool new_id = false);
 	void update(STrack &new_track, int frame_id);
 
@@ -46,5 +46,5 @@ public:
 	float score;
 
 private:
-	byte_kalman::KalmanFilter kalman_filter;
+	kalman::KalmanFilter kalman_filter;
 };

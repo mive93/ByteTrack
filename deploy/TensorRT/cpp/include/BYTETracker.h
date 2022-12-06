@@ -2,6 +2,7 @@
 
 #include "STrack.h"
 
+namespace bytetrack{
 struct Object
 {
     cv::Rect_<float> rect;
@@ -45,5 +46,7 @@ private:
 	std::vector<STrack> tracked_stracks;
 	std::vector<STrack> lost_stracks;
 	std::vector<STrack> removed_stracks;
-	byte_kalman::KalmanFilter kalman_filter;
+	kalman::KalmanFilter kalman_filter;
 };
+
+}

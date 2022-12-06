@@ -1,7 +1,7 @@
 #include "kalmanFilter.h"
 #include <Eigen/Cholesky>
 
-namespace byte_kalman
+namespace kalman
 {
 	const double KalmanFilter::chi2inv95[10] = {
 	0,

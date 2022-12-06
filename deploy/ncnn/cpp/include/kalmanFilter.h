@@ -2,7 +2,7 @@
 
 #include "dataType.h"
 
-namespace byte_kalman
+namespace kalman
 {
 	class KalmanFilter
 	{
