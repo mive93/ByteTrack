@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 project(bytetrack)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++14)
 
 option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 set(CMAKE_CXX_STANDARD 11)
