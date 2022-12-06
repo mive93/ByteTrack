@@ -20,7 +20,7 @@
         auto ret = (status);\
         if (ret != 0)\
         {\
-            cerr << "Cuda failure: " << ret << endl;\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
             abort();\
         }\
     } while (0)
@@ -38,15 +38,15 @@ const char* INPUT_BLOB_NAME = "input_0";
 const char* OUTPUT_BLOB_NAME = "output_0";
 static Logger gLogger;
 
-Mat static_resize(Mat& img) {
-    float r = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
+cv::Mat static_resize(cv::Mat& img) {
+    float r = std::min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
     // r = std::min(r, 1.0f);
     int unpad_w = r * img.cols;
     int unpad_h = r * img.rows;
-    Mat re(unpad_h, unpad_w, CV_8UC3);
-    resize(img, re, re.size());
-    Mat out(INPUT_H, INPUT_W, CV_8UC3, Scalar(114, 114, 114));
-    re.copyTo(out(Rect(0, 0, re.cols, re.rows)));
+    cv::Mat re(unpad_h, unpad_w, CV_8UC3);
+    cv::resize(img, re, re.size());
+    cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(114, 114, 114));
+    re.copyTo(out(cv::Rect(0, 0, re.cols, re.rows)));
     return out;
 }
 
@@ -57,7 +57,7 @@ struct GridAndStride
     int stride;
 };
 
-static void generate_grids_and_stride(const int target_w, const int target_h, vector<int>& strides, vector<GridAndStride>& grid_strides)
+static void generate_grids_and_stride(const int target_w, const int target_h, std::vector<int>& strides, std::vector<GridAndStride>& grid_strides)
 {
     for (auto stride : strides)
     {
@@ -75,11 +75,11 @@ static void generate_grids_and_stride(const int target_w, const int target_h, ve
 
 static inline float intersection_area(const Object& a, const Object& b)
 {
-    Rect_<float> inter = a.rect & b.rect;
+    cv::Rect_<float> inter = a.rect & b.rect;
     return inter.area();
 }
 
-static void qsort_descent_inplace(vector<Object>& faceobjects, int left, int right)
+static void qsort_descent_inplace(std::vector<Object>& faceobjects, int left, int right)
 {
     int i = left;
     int j = right;
@@ -96,27 +96,27 @@ static void qsort_descent_inplace(vector<Object>& faceobjects, int left, int rig
         if (i <= j)
         {
             // swap
-            swap(faceobjects[i], faceobjects[j]);
+            std::swap(faceobjects[i], faceobjects[j]);
 
             i++;
             j--;
         }
     }
 
-    #pragma omp parallel sections
+    // #pragma omp parallel sections
     {
-        #pragma omp section
+        // #pragma omp section
         {
             if (left < j) qsort_descent_inplace(faceobjects, left, j);
         }
-        #pragma omp section
+        // #pragma omp section
         {
             if (i < right) qsort_descent_inplace(faceobjects, i, right);
         }
     }
 }
 
-static void qsort_descent_inplace(vector<Object>& objects)
+static void qsort_descent_inplace(std::vector<Object>& objects)
 {
     if (objects.empty())
         return;
@@ -124,13 +124,13 @@ static void qsort_descent_inplace(vector<Object>& objects)
     qsort_descent_inplace(objects, 0, objects.size() - 1);
 }
 
-static void nms_sorted_bboxes(const vector<Object>& faceobjects, vector<int>& picked, float nms_threshold)
+static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vector<int>& picked, float nms_threshold)
 {
     picked.clear();
 
     const int n = faceobjects.size();
 
-    vector<float> areas(n);
+    std::vector<float> areas(n);
     for (int i = 0; i < n; i++)
     {
         areas[i] = faceobjects[i].rect.area();
@@ -159,7 +159,7 @@ static void nms_sorted_bboxes(const vector<Object>& faceobjects, vector<int>& pi
 }
 
 
-static void generate_yolox_proposals(vector<GridAndStride> grid_strides, float* feat_blob, float prob_threshold, vector<Object>& objects)
+static void generate_yolox_proposals(std::vector<GridAndStride> grid_strides, float* feat_blob, float prob_threshold, std::vector<Object>& objects)
 {
     const int num_class = 1;
 
@@ -204,23 +204,23 @@ static void generate_yolox_proposals(vector<GridAndStride> grid_strides, float* 
     } // point anchor loop
 }
 
-float* blobFromImage(Mat& img){
-    cvtColor(img, img, COLOR_BGR2RGB);
+float* blobFromImage(cv::Mat& img){
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
 
     float* blob = new float[img.total()*3];
     int channels = 3;
     int img_h = img.rows;
     int img_w = img.cols;
-    vector<float> mean = {0.485, 0.456, 0.406};
-    vector<float> std = {0.229, 0.224, 0.225};
-    for (size_t c = 0; c < channels; c++) 
+    std::vector<float> mean = {0.485, 0.456, 0.406};
+    std::vector<float> std = {0.229, 0.224, 0.225};
+    for (int c = 0; c < channels; c++) 
     {
-        for (size_t  h = 0; h < img_h; h++) 
+        for (int  h = 0; h < img_h; h++) 
         {
-            for (size_t w = 0; w < img_w; w++) 
+            for (int w = 0; w < img_w; w++) 
             {
                 blob[c * img_w * img_h + h * img_w + w] =
-                    (((float)img.at<Vec3b>(h, w)[c]) / 255.0f - mean[c]) / std[c];
+                    (((float)img.at<cv::Vec3b>(h, w)[c]) / 255.0f - mean[c]) / std[c];
             }
         }
     }
@@ -228,17 +228,17 @@ float* blobFromImage(Mat& img){
 }
 
 
-static void decode_outputs(float* prob, vector<Object>& objects, float scale, const int img_w, const int img_h) {
-        vector<Object> proposals;
-        vector<int> strides = {8, 16, 32};
-        vector<GridAndStride> grid_strides;
+static void decode_outputs(float* prob, std::vector<Object>& objects, float scale, const int img_w, const int img_h) {
+        std::vector<Object> proposals;
+        std::vector<int> strides = {8, 16, 32};
+        std::vector<GridAndStride> grid_strides;
         generate_grids_and_stride(INPUT_W, INPUT_H, strides, grid_strides);
         generate_yolox_proposals(grid_strides, prob,  BBOX_CONF_THRESH, proposals);
         //std::cout << "num of boxes before nms: " << proposals.size() << std::endl;
 
         qsort_descent_inplace(proposals);
 
-        vector<int> picked;
+        std::vector<int> picked;
         nms_sorted_bboxes(proposals, picked, NMS_THRESH);
 
 
@@ -354,7 +354,7 @@ const float color_list[80][3] =
     {0.50, 0.5, 0}
 };
 
-void doInference(IExecutionContext& context, float* input, float* output, const int output_size, Size input_shape) {
+void doInference(IExecutionContext& context, float* input, float* output, const int output_size, cv::Size input_shape) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -369,7 +369,7 @@ void doInference(IExecutionContext& context, float* input, float* output, const 
     assert(engine.getBindingDataType(inputIndex) == nvinfer1::DataType::kFLOAT);
     const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
     assert(engine.getBindingDataType(outputIndex) == nvinfer1::DataType::kFLOAT);
-    int mBatchSize = engine.getMaxBatchSize();
+    // int mBatchSize = engine.getMaxBatchSize();
 
     // Create GPU buffers on device
     CHECK(cudaMalloc(&buffers[inputIndex], 3 * input_shape.height * input_shape.width * sizeof(float)));
@@ -407,22 +407,22 @@ int tkDNNMain(int argc, char** argv) {
     tk::dnn::Yolo3Detection yolo;
     yolo.init(net, n_classes, n_batch, conf_thresh);
 
-    VideoCapture cap(input);
+    cv::VideoCapture cap(input);
 	if (!cap.isOpened())
 		return 0;
 
-	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
-	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
-    int fps = cap.get(CAP_PROP_FPS);
-    long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
-    cout << "Total frames: " << nFrame << endl;
+	// int img_w = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+	// int img_h = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    int fps = cap.get(cv::CAP_PROP_FPS);
+    long nFrame = static_cast<long>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+    std::cout << "Total frames: " << nFrame << std::endl;
 
 
     cv::Mat frame;
     std::vector<cv::Mat> batch_frame;
     std::vector<cv::Mat> batch_dnn_input;
 
-    Mat img;
+    cv::Mat img;
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
@@ -447,7 +447,7 @@ int tkDNNMain(int argc, char** argv) {
         yolo.update(batch_dnn_input, n_batch);
 
         // get bb
-        vector<Object> objects;
+        std::vector<Object> objects;
 
         for(size_t i =0; i<yolo.detected.size(); ++i){
 
@@ -466,41 +466,41 @@ int tkDNNMain(int argc, char** argv) {
             
         }
 
-        auto start = chrono::system_clock::now();
+        auto start = std::chrono::system_clock::now();
         // update tracker 
-        vector<STrack> output_stracks = tracker.update(objects);
+        std::vector<STrack> output_stracks = tracker.update(objects);
 
         //get time        
-        auto end = chrono::system_clock::now();
-        total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
+        auto end = std::chrono::system_clock::now();
+        total_ms = total_ms + std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
         num_frames ++;
         if (num_frames % 20 == 0)
-            cout << "Processing frame " << num_frames << " (" << total_ms/1000.0f/num_frames << " ms avg)" << endl;
+            std::cout << "Processing frame " << num_frames << " (" << total_ms/1000.0f/num_frames << " ms avg)" << std::endl;
 
 
         // draw
-        for (int i = 0; i < output_stracks.size(); i++)
+        for (size_t i = 0; i < output_stracks.size(); i++)
 		{
-			vector<float> tlwh = output_stracks[i].tlwh;
+			std::vector<float> tlwh = output_stracks[i].tlwh;
 			bool vertical = tlwh[2] / tlwh[3] > 1.6;
 			if (tlwh[2] * tlwh[3] > 20 && !vertical)
 			{
-				Scalar s = tracker.get_color(output_stracks[i].track_id);
-				putText(frame, format("%d", output_stracks[i].track_id), Point(tlwh[0], tlwh[1] - 5), 
-                        0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
-                rectangle(frame, Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
+				cv::Scalar s = tracker.get_color(output_stracks[i].track_id);
+				cv::putText(frame, cv::format("%d", output_stracks[i].track_id), cv::Point(tlwh[0], tlwh[1] - 5), 
+                        0, 0.6, cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+                cv::rectangle(frame, cv::Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
 			}
 		}
-        putText(frame, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
-                Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
+        cv::putText(frame, cv::format("frame: %d fps: %d num: %ld", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
+                cv::Point(0, 30), 0, 0.6, cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
 
         cv::imshow("detection", frame);
         cv::waitKey(1);
     }
 
     cap.release();
-    cout << "FPS: " << num_frames * 1000000 / total_ms << endl;
+    std::cout << "FPS: " << num_frames * 1000000 / total_ms << std::endl;
 
     return 0;
     
@@ -516,9 +516,9 @@ int main(int argc, char** argv) {
     char *trtModelStream{nullptr};
     size_t size{0};
 
-    if (argc == 4 && string(argv[2]) == "-i") {
-        const string engine_file_path {argv[1]};
-        ifstream file(engine_file_path, ios::binary);
+    if (argc == 4 && std::string(argv[2]) == "-i") {
+        const std::string engine_file_path {argv[1]};
+        std::ifstream file(engine_file_path, std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
             size = file.tellg();
@@ -529,18 +529,18 @@ int main(int argc, char** argv) {
             file.close();
         }
     } else {
-        cerr << "arguments not right!" << endl;
-        cerr << "run 'python3 tools/trt.py -f exps/example/mot/yolox_s_mix_det.py -c pretrained/bytetrack_s_mot17.pth.tar' to serialize model first!" << std::endl;
-        cerr << "Then use the following command:" << endl;
-        cerr << "cd demo/TensorRT/cpp/build" << endl;
-        cerr << "./bytetrack ../../../../YOLOX_outputs/yolox_s_mix_det/model_trt.engine -i ../../../../videos/palace.mp4  // deserialize file and run inference" << std::endl;
+        std::cerr << "arguments not right!" << std::endl;
+        std::cerr << "run 'python3 tools/trt.py -f exps/example/mot/yolox_s_mix_det.py -c pretrained/bytetrack_s_mot17.pth.tar' to serialize model first!" << std::endl;
+        std::cerr << "Then use the following command:" << std::endl;
+        std::cerr << "cd demo/TensorRT/cpp/build" << std::endl;
+        std::cerr << "./bytetrack ../../../../YOLOX_outputs/yolox_s_mix_det/model_trt.engine -i ../../../../videos/palace.mp4  // deserialize file and run inference" << std::endl;
         return -1;
     }
-    const string input_video_path {argv[3]};
+    const std::string input_video_path {argv[3]};
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    bool didInitPlugins = ::initLibNvInferPlugins(nullptr, "");
+    // bool didInitPlugins = ::initLibNvInferPlugins(nullptr, "");
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr); 
     IExecutionContext* context = engine->createExecutionContext();
@@ -553,19 +553,19 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
-    VideoCapture cap(input_video_path);
+    cv::VideoCapture cap(input_video_path);
 	if (!cap.isOpened())
 		return 0;
 
-	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
-	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
-    int fps = cap.get(CAP_PROP_FPS);
-    long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
-    cout << "Total frames: " << nFrame << endl;
+	int img_w = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+	int img_h = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    int fps = cap.get(cv::CAP_PROP_FPS);
+    long nFrame = static_cast<long>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+    std::cout << "Total frames: " << nFrame << std::endl;
 
-    VideoWriter writer("demo.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
+    cv::VideoWriter writer("demo.mp4", cv::VideoWriter::fourcc('m', 'p', '4', 'v'), fps, cv::Size(img_w, img_h));
 
-    Mat img;
+    cv::Mat img;
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
@@ -576,51 +576,51 @@ int main(int argc, char** argv) {
         num_frames ++;
         if (num_frames % 20 == 0)
         {
-            cout << "Processing frame " << num_frames << " (" << num_frames * 1000000 / total_ms << " fps)" << endl;
+            std::cout << "Processing frame " << num_frames << " (" << num_frames * 1000000 / total_ms << " fps)" << std::endl;
         }
 		if (img.empty())
 			break;
-        Mat pr_img = static_resize(img);
+        cv::Mat pr_img = static_resize(img);
         
         float* blob;
         blob = blobFromImage(pr_img);
-        float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
+        float scale = std::min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
         
         // run inference
-        auto start = chrono::system_clock::now();
+        auto start = std::chrono::system_clock::now();
         doInference(*context, blob, prob, output_size, pr_img.size());
-        vector<Object> objects;
+        std::vector<Object> objects;
         decode_outputs(prob, objects, scale, img_w, img_h);
-        vector<STrack> output_stracks = tracker.update(objects);
-        auto end = chrono::system_clock::now();
-        total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
+        std::vector<STrack> output_stracks = tracker.update(objects);
+        auto end = std::chrono::system_clock::now();
+        total_ms = total_ms + std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-        for (int i = 0; i < output_stracks.size(); i++)
+        for (size_t i = 0; i < output_stracks.size(); i++)
 		{
-			vector<float> tlwh = output_stracks[i].tlwh;
+			std::vector<float> tlwh = output_stracks[i].tlwh;
 			bool vertical = tlwh[2] / tlwh[3] > 1.6;
 			if (tlwh[2] * tlwh[3] > 20 && !vertical)
 			{
-				Scalar s = tracker.get_color(output_stracks[i].track_id);
-				putText(img, format("%d", output_stracks[i].track_id), Point(tlwh[0], tlwh[1] - 5), 
-                        0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
-                rectangle(img, Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
+				cv::Scalar s = tracker.get_color(output_stracks[i].track_id);
+				cv::putText(img, cv::format("%d", output_stracks[i].track_id), cv::Point(tlwh[0], tlwh[1] - 5), 
+                        0, 0.6, cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+                cv::rectangle(img, cv::Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
 			}
 		}
-        putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
-                Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
-        imshow("img", img);
+        cv::putText(img, cv::format("frame: %d fps: %d num: %ld", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
+                cv::Point(0, 30), 0, 0.6, cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+        cv::imshow("img", img);
         writer.write(img);
 
         delete blob;
-        char c = waitKey(1);
+        char c = cv::waitKey(1);
         if (c > 0)
         {
             break;
         }
     }
     cap.release();
-    cout << "FPS: " << num_frames * 1000000 / total_ms << endl;
+    std::cout << "FPS: " << num_frames * 1000000 / total_ms << std::endl;
     // destroy the engine
     context->destroy();
     engine->destroy();
